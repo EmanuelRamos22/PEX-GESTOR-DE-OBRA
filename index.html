@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Gestor de Obras</title>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="logo">Gestor de Obras</div>
+
+      <button id="toggleTheme">Modo Dark</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h3>Sistema</h3>
+
+        <ul>
+          <li>Cadastro de Obras</li>
+          <li>Controle de Gastos</li>
+          <li>Relatórios</li>
+        </ul>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h2>Cadastrar Obra</h2>
+
+          <div class="grid">
+            <input id="nomeObra" placeholder="Nome da obra" />
+            <input id="localObra" placeholder="Local da obra" />
+            <input id="prazoObra" type="date" />
+          </div>
+
+          <button id="btnCriarObra" class="btn-primary">Criar Obra</button>
+        </section>
+
+        <section class="card">
+          <h2>Obras Cadastradas</h2>
+
+          <ul id="listaObras"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Registrar Gasto</h2>
+
+          <div class="grid">
+            <select id="obraSelecionada"></select>
+
+            <input id="descricaoGasto" placeholder="Descrição do gasto" />
+
+            <input id="valorGasto" type="number" placeholder="Valor" />
+
+            <input id="dataGasto" type="date" />
+
+            <select id="categoriaGasto">
+              <option>Material</option>
+              <option>Funcionário</option>
+              <option>Equipamento</option>
+              <option>Outros</option>
+            </select>
+          </div>
+
+          <button id="btnRegistrarGasto" class="btn-primary">
+            Registrar Gasto
+          </button>
+        </section>
+
+        <section class="card">
+          <h2>Controle de Gastos</h2>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Obra</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Valor</th>
+                  <th>Data</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+
+              <tbody id="tabelaGastos"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
