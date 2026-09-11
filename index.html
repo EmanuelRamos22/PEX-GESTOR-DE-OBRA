@@ -3,95 +3,914 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title>Gestor de Obras</title>
-
+    <meta
+      name="description"
+      content="Gestor de Obras V2 - gestão local de obras, clientes, orçamentos, estoque e financeiro."
+    />
+    <title>Gestor de Obras V2</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-
   <body>
-    <header class="topbar">
-      <div class="logo">Gestor de Obras</div>
+    <div id="toastContainer" class="toast-container"></div>
 
-      <button id="toggleTheme">Modo Dark</button>
-    </header>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark">RS</div>
+          <div>
+            <strong>Gestor de Obras 2.0</strong>
+            <span>Versão 2.0</span>
+          </div>
+        </div>
 
-    <div class="layout">
-      <aside class="sidebar">
-        <h3>Sistema</h3>
+        <nav class="nav">
+          <button class="nav-item active" data-page="dashboard">
+            <span>⌂</span> Dashboard
+          </button>
+          <button class="nav-item" data-page="obras">
+            <span>▣</span> Obras
+          </button>
+          <button class="nav-item" data-page="clientes">
+            <span>♙</span> Clientes
+          </button>
+          <button class="nav-item" data-page="orcamentos">
+            <span>▤</span> Orçamentos
+          </button>
+          <button class="nav-item" data-page="estoque">
+            <span>▦</span> Estoque
+          </button>
+          <button class="nav-item" data-page="financeiro">
+            <span>R$</span> Financeiro
+          </button>
+          <button class="nav-item" data-page="relatorios">
+            <span>▥</span> Relatórios
+          </button>
+        </nav>
 
-        <ul>
-          <li>Cadastro de Obras</li>
-          <li>Controle de Gastos</li>
-          <li>Relatórios</li>
-        </ul>
+        <div class="sidebar-footer">
+          <button class="nav-item" id="themeToggle">
+            <span>◐</span> Alternar tema
+          </button>
+          <button class="nav-item danger-text" id="resetData">
+            <span>↺</span> Limpar dados
+          </button>
+        </div>
       </aside>
 
-      <main class="content">
-        <section class="card">
-          <h2>Cadastrar Obra</h2>
+      <main class="main">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobileMenu">☰</button>
+          <div>
+            <p class="eyebrow">Sistema local de gestão</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="local-badge">● LocalStorage ativo</div>
+            <button class="icon-button" id="quickAdd" title="Ação rápida">
+              ＋
+            </button>
+          </div>
+        </header>
 
-          <div class="grid">
-            <input id="nomeObra" placeholder="Nome da obra" />
-            <input id="localObra" placeholder="Local da obra" />
-            <input id="prazoObra" type="date" />
+        <section id="dashboard" class="page active">
+          <div class="hero">
+            <div>
+              <span class="pill">Gestão simplificada</span>
+              <h2>Controle sua operação em um só lugar.</h2>
+              <p>
+                Obras, clientes, orçamentos, estoque e financeiro armazenados
+                diretamente no navegador.
+              </p>
+            </div>
+            <button
+              class="btn btn-primary"
+              onclick="
+                navigateTo('obras');
+                openModal('obraModal');
+              "
+            >
+              + Nova obra
+            </button>
           </div>
 
-          <button id="btnCriarObra" class="btn-primary">Criar Obra</button>
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>Obras ativas</span><strong id="statObras">0</strong
+              ><small id="statObrasSub">Nenhuma obra</small>
+            </article>
+            <article class="stat-card">
+              <span>Clientes</span><strong id="statClientes">0</strong
+              ><small>Base cadastrada</small>
+            </article>
+            <article class="stat-card">
+              <span>Orçado</span><strong id="statOrcado">R$ 0,00</strong
+              ><small>Orçamentos aprovados</small>
+            </article>
+            <article class="stat-card">
+              <span>Resultado</span><strong id="statResultado">R$ 0,00</strong
+              ><small>Receitas - despesas</small>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Financeiro</p>
+                  <h3>Resumo financeiro</h3>
+                </div>
+              </div>
+              <div class="finance-summary">
+                <div>
+                  <span>Receitas</span
+                  ><strong id="dashReceitas">R$ 0,00</strong>
+                </div>
+                <div>
+                  <span>Despesas</span
+                  ><strong id="dashDespesas">R$ 0,00</strong>
+                </div>
+                <div>
+                  <span>Saldo</span><strong id="dashSaldo">R$ 0,00</strong>
+                </div>
+              </div>
+              <div class="progress-shell">
+                <div class="progress-label">
+                  <span>Despesas sobre receitas</span
+                  ><b id="financePercent">0%</b>
+                </div>
+                <div class="progress">
+                  <span id="financeBar" style="width: 0%"></span>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Atenção</p>
+                  <h3>Estoque baixo</h3>
+                </div>
+                <button class="text-button" onclick="navigateTo('estoque')">
+                  Ver estoque
+                </button>
+              </div>
+              <div id="lowStockList" class="mini-list empty-state">
+                Nenhum item com estoque baixo.
+              </div>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Comercial</p>
+                  <h3>Orçados x fechados</h3>
+                </div>
+              </div>
+              <div id="budgetChart" class="chart-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Obras</p>
+                  <h3>Status atual</h3>
+                </div>
+              </div>
+              <div id="dashStatusGrid" class="status-grid"></div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Projetos</p>
+                <h3>Obras recentes</h3>
+              </div>
+              <button class="text-button" onclick="navigateTo('obras')">
+                Ver todas
+              </button>
+            </div>
+            <div id="recentWorks" class="cards-list empty-state">
+              Nenhuma obra cadastrada.
+            </div>
+          </article>
         </section>
 
-        <section class="card">
-          <h2>Obras Cadastradas</h2>
-
-          <ul id="listaObras"></ul>
-        </section>
-
-        <section class="card">
-          <h2>Registrar Gasto</h2>
-
-          <div class="grid">
-            <select id="obraSelecionada"></select>
-
-            <input id="descricaoGasto" placeholder="Descrição do gasto" />
-
-            <input id="valorGasto" type="number" placeholder="Valor" />
-
-            <input id="dataGasto" type="date" />
-
-            <select id="categoriaGasto">
-              <option>Material</option>
-              <option>Funcionário</option>
-              <option>Equipamento</option>
-              <option>Outros</option>
+        <section id="obras" class="page">
+          <div class="page-actions">
+            <div class="search-box">
+              <input
+                id="searchObras"
+                placeholder="Buscar obra, local ou cliente..."
+              />
+            </div>
+            <select id="filterObraStatus">
+              <option value="todos">Todos os status</option>
+              <option>Orçamento</option>
+              <option>Aguardando aprovação</option>
+              <option>Em andamento</option>
+              <option>Pausada</option>
+              <option>Concluída</option>
+              <option>Cancelada</option>
             </select>
+            <button class="btn btn-primary" onclick="openModal('obraModal')">
+              + Nova obra
+            </button>
           </div>
-
-          <button id="btnRegistrarGasto" class="btn-primary">
-            Registrar Gasto
-          </button>
+          <div id="obrasGrid" class="entity-grid"></div>
         </section>
 
-        <section class="card">
-          <h2>Controle de Gastos</h2>
-
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Obra</th>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Valor</th>
-                  <th>Data</th>
-                  <th>Ação</th>
-                </tr>
-              </thead>
-
-              <tbody id="tabelaGastos"></tbody>
-            </table>
+        <section id="clientes" class="page">
+          <div class="page-actions">
+            <div class="search-box">
+              <input id="searchClientes" placeholder="Buscar cliente..." />
+            </div>
+            <button class="btn btn-primary" onclick="openModal('clienteModal')">
+              + Novo cliente
+            </button>
           </div>
+          <div id="clientesGrid" class="entity-grid"></div>
+        </section>
+
+        <section id="orcamentos" class="page">
+          <div class="page-actions">
+            <div class="search-box">
+              <input id="searchOrcamentos" placeholder="Buscar orçamento..." />
+            </div>
+            <button class="btn btn-primary" onclick="openBudgetModal()">
+              + Novo orçamento
+            </button>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nº</th>
+                    <th>Cliente</th>
+                    <th>Obra</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Data</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="orcamentosTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="estoque" class="page">
+          <div class="stats-grid compact">
+            <article class="stat-card">
+              <span>Itens</span><strong id="stockItems">0</strong
+              ><small>Materiais cadastrados</small>
+            </article>
+            <article class="stat-card">
+              <span>Valor em estoque</span
+              ><strong id="stockValue">R$ 0,00</strong
+              ><small>Custo estimado</small>
+            </article>
+            <article class="stat-card">
+              <span>Estoque baixo</span><strong id="stockLow">0</strong
+              ><small>Itens em atenção</small>
+            </article>
+          </div>
+          <div class="page-actions">
+            <div class="search-box">
+              <input id="searchEstoque" placeholder="Buscar material..." />
+            </div>
+            <button
+              class="btn btn-secondary"
+              onclick="openModal('movimentoModal')"
+            >
+              Movimentar
+            </button>
+            <button class="btn btn-primary" onclick="openModal('estoqueModal')">
+              + Novo item
+            </button>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Material</th>
+                    <th>Categoria</th>
+                    <th>Qtd.</th>
+                    <th>Unidade</th>
+                    <th>Custo</th>
+                    <th>Mínimo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="estoqueTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="financeiro" class="page">
+          <div class="stats-grid compact">
+            <article class="stat-card income">
+              <span>Receitas</span><strong id="finReceitas">R$ 0,00</strong
+              ><small>Total registrado</small>
+            </article>
+            <article class="stat-card expense">
+              <span>Despesas</span><strong id="finDespesas">R$ 0,00</strong
+              ><small>Total registrado</small>
+            </article>
+            <article class="stat-card">
+              <span>Saldo</span><strong id="finSaldo">R$ 0,00</strong
+              ><small>Resultado atual</small>
+            </article>
+          </div>
+          <div class="page-actions">
+            <select id="financeFilter">
+              <option value="todos">Todos os lançamentos</option>
+              <option value="receita">Receitas</option>
+              <option value="despesa">Despesas</option>
+              <option value="pendente">Pendentes</option>
+            </select>
+            <button
+              class="btn btn-primary"
+              onclick="openModal('financeiroModal')"
+            >
+              + Novo lançamento
+            </button>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Obra</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Data</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="financeTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="relatorios" class="page">
+          <div class="report-grid">
+            <article class="panel">
+              <p class="eyebrow">Indicadores</p>
+              <h3>Visão geral</h3>
+              <div id="reportIndicators" class="report-kpis"></div>
+            </article>
+            <article class="panel">
+              <p class="eyebrow">Despesas</p>
+              <h3>Gastos por categoria</h3>
+              <div id="categoryBars" class="bar-list"></div>
+            </article>
+          </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Performance</p>
+                <h3>Resultado por obra</h3>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Obra</th>
+                    <th>Orçamento</th>
+                    <th>Receitas</th>
+                    <th>Despesas</th>
+                    <th>Resultado</th>
+                  </tr>
+                </thead>
+                <tbody id="reportWorks"></tbody>
+              </table>
+            </div>
+          </article>
         </section>
       </main>
+    </div>
+
+    <!-- MODAIS -->
+    <div class="modal" id="obraModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Projeto</p>
+            <h3 id="obraModalTitle">Nova obra</h3>
+          </div>
+          <button onclick="closeModal('obraModal')">×</button>
+        </div>
+        <form id="obraForm">
+          <input type="hidden" id="obraId" />
+          <div class="form-grid">
+            <label class="full"
+              >Nome da obra<input
+                id="obraNome"
+                required
+                placeholder="Ex: Reforma residencial"
+            /></label>
+            <label>Cliente<select id="obraCliente"></select></label>
+            <label
+              >Status<select id="obraStatus">
+                <option>Orçamento</option>
+                <option>Aguardando aprovação</option>
+                <option selected>Em andamento</option>
+                <option>Pausada</option>
+                <option>Concluída</option>
+                <option>Cancelada</option>
+              </select></label
+            >
+            <label class="full"
+              >Endereço<input
+                id="obraLocal"
+                placeholder="Endereço ou local da obra"
+            /></label>
+            <label>Data de início<input id="obraInicio" type="date" /></label>
+            <label
+              >Previsão de término<input id="obraPrazo" type="date"
+            /></label>
+            <label
+              >Orçamento previsto<input
+                id="obraOrcamento"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+            /></label>
+            <label
+              >Progresso (%)<input
+                id="obraProgresso"
+                type="number"
+                min="0"
+                max="100"
+                value="0"
+            /></label>
+            <label class="full"
+              >Observações<textarea
+                id="obraObs"
+                rows="3"
+                placeholder="Informações importantes..."
+              ></textarea>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('obraModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Salvar obra</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="clienteModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Relacionamento</p>
+            <h3 id="clienteModalTitle">Novo cliente</h3>
+          </div>
+          <button onclick="closeModal('clienteModal')">×</button>
+        </div>
+        <form id="clienteForm">
+          <input type="hidden" id="clienteId" />
+          <div class="form-grid">
+            <label class="full"
+              >Nome<input
+                id="clienteNome"
+                required
+                placeholder="Nome completo ou empresa"
+            /></label>
+            <label
+              >Telefone<input
+                id="clienteTelefone"
+                placeholder="(21) 99999-9999"
+            /></label>
+            <label
+              >E-mail<input
+                id="clienteEmail"
+                type="email"
+                placeholder="cliente@email.com"
+            /></label>
+            <label class="full"
+              >Endereço<input id="clienteEndereco" placeholder="Endereço"
+            /></label>
+            <label class="full"
+              >Observações<textarea id="clienteObs" rows="3"></textarea>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('clienteModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Salvar cliente</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="orcamentoModal">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Comercial</p>
+            <h3>Novo orçamento</h3>
+          </div>
+          <button onclick="closeModal('orcamentoModal')">×</button>
+        </div>
+        <form id="orcamentoForm">
+          <div class="form-grid">
+            <label>Cliente<select id="orcCliente" required></select></label>
+            <label>Obra<select id="orcObra"></select></label>
+            <label
+              >Validade (dias)<input
+                id="orcValidade"
+                type="number"
+                value="15"
+                min="1"
+            /></label>
+            <label
+              >Status<select id="orcStatus">
+                <option>Pendente</option>
+                <option>Aprovado</option>
+                <option>Recusado</option>
+              </select></label
+            >
+          </div>
+
+          <div class="budget-builder">
+            <div class="budget-builder-head">
+              <h4>Itens do orçamento</h4>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                onclick="addBudgetItem()"
+              >
+                + Adicionar item
+              </button>
+            </div>
+            <div id="budgetItems"></div>
+          </div>
+
+          <div class="budget-breakdown" id="orcCostBreakdown"></div>
+
+          <div class="budget-summary">
+            <label
+              >Lucro / acréscimo (%)<input
+                id="orcMargem"
+                type="number"
+                value="20"
+                min="0"
+                step="0.01"
+            /></label>
+            <div>
+              <span>Subtotal</span><strong id="orcSubtotal">R$ 0,00</strong>
+            </div>
+            <div>
+              <span>Acréscimo</span><strong id="orcAcrescimo">R$ 0,00</strong>
+            </div>
+            <div class="total">
+              <span>Total</span><strong id="orcTotal">R$ 0,00</strong>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('orcamentoModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Salvar orçamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="estoqueModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Almoxarifado</p>
+            <h3 id="estoqueModalTitle">Novo item</h3>
+          </div>
+          <button onclick="closeModal('estoqueModal')">×</button>
+        </div>
+        <form id="estoqueForm">
+          <input type="hidden" id="estoqueId" />
+          <div class="form-grid">
+            <label class="full"
+              >Material<input
+                id="estoqueNome"
+                required
+                placeholder="Ex: Cimento CP-II"
+            /></label>
+            <label
+              >Categoria<input
+                id="estoqueCategoria"
+                placeholder="Ex: Alvenaria"
+            /></label>
+            <label
+              >Unidade<select id="estoqueUnidade">
+                <option>un</option>
+                <option>saco</option>
+                <option>kg</option>
+                <option>m</option>
+                <option>m²</option>
+                <option>m³</option>
+                <option>litro</option>
+                <option>caixa</option>
+              </select></label
+            >
+            <label
+              >Quantidade<input
+                id="estoqueQtd"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0"
+            /></label>
+            <label
+              >Estoque mínimo<input
+                id="estoqueMin"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0"
+            /></label>
+            <label
+              >Custo unitário<input
+                id="estoqueCusto"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0"
+            /></label>
+            <label
+              >Fornecedor<input id="estoqueFornecedor" placeholder="Fornecedor"
+            /></label>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('estoqueModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Salvar item</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="movimentoModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Estoque</p>
+            <h3>Movimentar material</h3>
+          </div>
+          <button onclick="closeModal('movimentoModal')">×</button>
+        </div>
+        <form id="movimentoForm">
+          <div class="form-grid">
+            <label class="full"
+              >Material<select id="movItem" required></select
+            ></label>
+            <label
+              >Tipo<select id="movTipo">
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+              </select></label
+            >
+            <label
+              >Quantidade<input
+                id="movQtd"
+                type="number"
+                required
+                min="0.01"
+                step="0.01"
+            /></label>
+            <label class="full">Obra<select id="movObra"></select></label>
+            <label class="full"
+              >Observação<input
+                id="movObs"
+                placeholder="Motivo da movimentação"
+            /></label>
+            <label class="check full"
+              ><input id="movRegistrarCompra" type="checkbox" checked />
+              Registrar a compra como despesa no financeiro (entradas)</label
+            >
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('movimentoModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Registrar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="financeiroModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Financeiro</p>
+            <h3>Novo lançamento</h3>
+          </div>
+          <button onclick="closeModal('financeiroModal')">×</button>
+        </div>
+        <form id="financeiroForm">
+          <div class="form-grid">
+            <label
+              >Tipo<select id="finTipo">
+                <option value="despesa">Despesa</option>
+                <option value="receita">Receita</option>
+              </select></label
+            >
+            <label
+              >Status<select id="finStatus">
+                <option>Pago</option>
+                <option>Pendente</option>
+                <option>Atrasado</option>
+              </select></label
+            >
+            <label class="full"
+              >Descrição<input
+                id="finDescricao"
+                required
+                placeholder="Descrição do lançamento"
+            /></label>
+            <label
+              >Valor<input
+                id="finValor"
+                type="number"
+                required
+                min="0.01"
+                step="0.01"
+            /></label>
+            <label>Data<input id="finData" type="date" required /></label>
+            <label
+              >Categoria<input
+                id="finCategoria"
+                placeholder="Material, mão de obra..."
+            /></label>
+            <label>Obra<select id="finObra"></select></label>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('financeiroModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Salvar lançamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="quickActionsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Ação rápida</p>
+            <h3>O que deseja adicionar?</h3>
+          </div>
+          <button onclick="closeModal('quickActionsModal')">×</button>
+        </div>
+        <div class="quick-actions">
+          <button
+            class="quick-card"
+            onclick="
+              closeModal('quickActionsModal');
+              navigateTo('obras');
+              openModal('obraModal');
+            "
+          >
+            <b>＋</b><span>Nova obra</span>
+          </button>
+          <button
+            class="quick-card"
+            onclick="
+              closeModal('quickActionsModal');
+              openModal('clienteModal');
+            "
+          >
+            <b>♙</b><span>Novo cliente</span>
+          </button>
+          <button
+            class="quick-card"
+            onclick="
+              closeModal('quickActionsModal');
+              openBudgetModal();
+            "
+          >
+            <b>▤</b><span>Novo orçamento</span>
+          </button>
+          <button
+            class="quick-card"
+            onclick="
+              closeModal('quickActionsModal');
+              openModal('estoqueModal');
+            "
+          >
+            <b>▦</b><span>Novo material</span>
+          </button>
+          <button
+            class="quick-card"
+            onclick="
+              closeModal('quickActionsModal');
+              openModal('financeiroModal');
+            "
+          >
+            <b>R$</b><span>Novo lançamento</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="obraPaymentModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Obra</p>
+            <h3 id="obraPaymentTitle">Receber da obra</h3>
+          </div>
+          <button onclick="closeModal('obraPaymentModal')">×</button>
+        </div>
+        <form id="obraPaymentForm">
+          <input type="hidden" id="obraPayId" /><input
+            type="hidden"
+            id="payTipo"
+          />
+          <div class="form-grid">
+            <label class="full"
+              >Obra<select id="obraPaySelect" disabled></select
+            ></label>
+            <label
+              >Status<select id="payStatus">
+                <option>Pago</option>
+                <option>Pendente</option>
+                <option>Atrasado</option>
+              </select></label
+            >
+            <label
+              >Categoria<select id="payCategoria">
+                <option>Pagamento final</option>
+                <option>Funcionário</option>
+                <option>Material</option>
+                <option>Gasolina</option>
+                <option>Equipamento</option>
+                <option>Outros</option>
+              </select></label
+            >
+            <label class="full"
+              >Descrição<input id="payDescricao" required
+            /></label>
+            <label
+              >Valor<input
+                id="payValor"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+            /></label>
+            <label>Data<input id="payData" type="date" required /></label>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeModal('obraPaymentModal')"
+            >
+              Cancelar</button
+            ><button class="btn btn-primary">Registrar</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script src="script.js"></script>

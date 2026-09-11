@@ -1,141 +1,81 @@
-let obras = JSON.parse(localStorage.getItem("obras")) || [];
-let gastos = JSON.parse(localStorage.getItem("gastos")) || [];
-
-const btnCriarObra = document.getElementById("btnCriarObra");
-const btnRegistrarGasto = document.getElementById("btnRegistrarGasto");
-const toggleTheme = document.getElementById("toggleTheme");
-
-btnCriarObra.addEventListener("click", criarObra);
-btnRegistrarGasto.addEventListener("click", registrarGasto);
-
-toggleTheme.addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-});
-
-function salvarDados() {
-  localStorage.setItem("obras", JSON.stringify(obras));
-  localStorage.setItem("gastos", JSON.stringify(gastos));
+const DB_KEY="gestorObrasV2";
+const emptyDB={clientes:[],obras:[],orcamentos:[],estoque:[],movimentos:[],financeiro:[],config:{theme:"light"}};
+let db=loadDB();
+function loadDB(){try{const s=JSON.parse(localStorage.getItem(DB_KEY));return s?{...structuredClone(emptyDB),...s,config:{...emptyDB.config,...(s.config||{})}}:structuredClone(emptyDB)}catch{return structuredClone(emptyDB)}}
+function saveDB(){localStorage.setItem(DB_KEY,JSON.stringify(db));renderAll()}
+function uid(p="id"){return `${p}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`}
+function money(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
+function today(){return new Date().toISOString().slice(0,10)}
+function dateBR(d){if(!d)return "-";const [y,m,x]=d.split("-");return y?`${x}/${m}/${y}`:d}
+function clientName(id){return db.clientes.find(x=>x.id===id)?.nome||"Sem cliente"}
+function workName(id){return db.obras.find(x=>x.id===id)?.nome||"Geral"}
+function escapeHTML(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
+function toast(msg){const e=document.createElement("div");e.className="toast";e.textContent=msg;document.getElementById("toastContainer").appendChild(e);setTimeout(()=>e.remove(),2600)}
+function openModal(id){syncSelects();document.getElementById(id).classList.add("open")}
+function closeModal(id){document.getElementById(id).classList.remove("open")}
+window.closeModal=closeModal;window.openModal=openModal;
+document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
+const pageTitles={dashboard:"Dashboard",obras:"Obras",clientes:"Clientes",orcamentos:"Orçamentos",estoque:"Estoque",financeiro:"Financeiro",relatorios:"Relatórios"};
+function navigateTo(p){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(p).classList.add("active");document.querySelectorAll(".nav-item[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===p));document.getElementById("pageTitle").textContent=pageTitles[p];document.getElementById("sidebar").classList.remove("open")}
+window.navigateTo=navigateTo;
+document.querySelectorAll(".nav-item[data-page]").forEach(b=>b.addEventListener("click",()=>navigateTo(b.dataset.page)));
+document.getElementById("mobileMenu").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
+document.getElementById("quickAdd").addEventListener("click",()=>openQuickAdd());
+function openQuickAdd(){document.getElementById("quickActionsModal").classList.add("open")}
+window.openQuickAdd=openQuickAdd;
+function statusBadge(s){let c="blue",t=(s||"").toLowerCase();if(t.includes("conclu")||t.includes("aprov")||t.includes("pago")||t.includes("fechado"))c="green";else if(t.includes("pend")||t.includes("aguard")||t.includes("paus"))c="orange";else if(t.includes("cancel")||t.includes("recus")||t.includes("atras"))c="red";return `<span class="badge ${c}">${escapeHTML(s||"-")}</span>`}
+function syncSelects(){
+ const clients=`<option value="">Selecione...</option>`+db.clientes.map(c=>`<option value="${c.id}">${escapeHTML(c.nome)}</option>`).join("");
+ ["obraCliente","orcCliente"].forEach(id=>{const e=document.getElementById(id);if(e){const v=e.value;e.innerHTML=clients;e.value=v}});
+ const works=`<option value="">Nenhuma / Geral</option>`+db.obras.map(o=>`<option value="${o.id}">${escapeHTML(o.nome)}</option>`).join("");
+ ["orcObra","movObra","finObra","obraPayId","obraPaySelect"].forEach(id=>{const e=document.getElementById(id);if(e){const v=e.value;e.innerHTML=works;e.value=v}});
+ const stock=`<option value="">Selecione...</option>`+db.estoque.map(i=>`<option value="${i.id}">${escapeHTML(i.nome)} — ${i.quantidade} ${escapeHTML(i.unidade)} · ${money(i.custo)}/un.</option>`).join("");
+ const mi=document.getElementById("movItem");if(mi){const v=mi.value;mi.innerHTML=stock;mi.value=v}
 }
-
-function criarObra() {
-  let nome = document.getElementById("nomeObra").value;
-  let local = document.getElementById("localObra").value;
-  let prazo = document.getElementById("prazoObra").value;
-
-  if (!nome) {
-    alert("Digite o nome da obra");
-    return;
-  }
-
-  let obra = {
-    id: Date.now(),
-    nome,
-    local,
-    prazo,
-  };
-
-  obras.push(obra);
-
-  salvarDados();
-
-  document.getElementById("nomeObra").value = "";
-  document.getElementById("localObra").value = "";
-  document.getElementById("prazoObra").value = "";
-
-  renderObras();
+function workTotals(id){const rec=db.financeiro.filter(f=>f.obraId===id&&f.tipo==="receita").reduce((s,f)=>s+Number(f.valor),0);const pay=db.financeiro.filter(f=>f.obraId===id&&f.tipo==="despesa").reduce((s,f)=>s+Number(f.valor),0);const stock=db.movimentos.filter(m=>m.obraId===id&&m.tipo==="saida").reduce((s,m)=>s+Number(m.totalCusto||0),0);return{rec,pay,stock,totalCost:pay,result:rec-pay}}
+function renderDashboard(){
+ const active=db.obras.filter(o=>!['Concluída','Cancelada'].includes(o.status)).length;
+ const rec=db.financeiro.filter(f=>f.tipo==='receita').reduce((s,f)=>s+Number(f.valor),0),des=db.financeiro.filter(f=>f.tipo==='despesa').reduce((s,f)=>s+Number(f.valor),0);
+ const approved=db.orcamentos.filter(o=>o.status==='Aprovado').reduce((s,o)=>s+Number(o.total),0),closed=db.orcamentos.filter(o=>['Aprovado','Fechado'].includes(o.status)).reduce((s,o)=>s+Number(o.total),0);
+ document.getElementById('statObras').textContent=active;document.getElementById('statObrasSub').textContent=`${db.obras.length} cadastrada(s)`;document.getElementById('statClientes').textContent=db.clientes.length;document.getElementById('statOrcado').textContent=money(approved);document.getElementById('statResultado').textContent=money(rec-des);
+ document.getElementById('dashReceitas').textContent=money(rec);document.getElementById('dashDespesas').textContent=money(des);document.getElementById('dashSaldo').textContent=money(rec-des);
+ const pct=rec?Math.min(100,des/rec*100):(des?100:0);document.getElementById('financePercent').textContent=pct.toFixed(0)+'%';document.getElementById('financeBar').style.width=pct+'%';
+ const low=db.estoque.filter(i=>Number(i.quantidade)<=Number(i.minimo));document.getElementById('lowStockList').innerHTML=low.length?low.slice(0,5).map(i=>`<div class="mini-row"><div><strong>${escapeHTML(i.nome)}</strong><span>${i.quantidade} ${escapeHTML(i.unidade)} disponíveis</span></div><span class="badge red">Baixo</span></div>`).join(''):'Nenhum item com estoque baixo.';
+ const recent=[...db.obras].sort((a,b)=>b.createdAt-a.createdAt).slice(0,4);document.getElementById('recentWorks').innerHTML=recent.length?recent.map(o=>`<div class="mini-row"><div><strong>${escapeHTML(o.nome)}</strong><span>${escapeHTML(clientName(o.clienteId))} · ${escapeHTML(o.local||'Sem endereço')}</span></div>${statusBadge(o.status)}</div>`).join(''):'Nenhuma obra cadastrada.';
+ document.getElementById('budgetChart').innerHTML=`<div class="chart-row"><div><span>Orçados</span><b>${money(db.orcamentos.reduce((s,o)=>s+Number(o.total),0))}</b></div><div class="chart-track"><i style="width:${Math.min(100,(db.orcamentos.reduce((s,o)=>s+Number(o.total),0)||1)/(Math.max(1,closed))*100)}%"></i></div></div><div class="chart-row"><div><span>Aprovados / fechados</span><b>${money(closed)}</b></div><div class="chart-track"><i style="width:${Math.min(100,(closed/(Math.max(1,db.orcamentos.reduce((s,o)=>s+Number(o.total),0))))*100)}%"></i></div></div><div class="chart-note">Conversão por valor: ${approved?((closed/Math.max(1,db.orcamentos.reduce((s,o)=>s+Number(o.total),0)))*100).toFixed(1):0}%</div>`;
+ const sts=['Orçamento','Aguardando aprovação','Em andamento','Pausada','Concluída','Cancelada'];document.getElementById('dashStatusGrid').innerHTML=sts.map(s=>`<div class="status-count"><span>${escapeHTML(s)}</span><strong>${db.obras.filter(o=>o.status===s).length}</strong></div>`).join('');
 }
-
-function renderObras() {
-  let lista = document.getElementById("listaObras");
-  let select = document.getElementById("obraSelecionada");
-
-  lista.innerHTML = "";
-  select.innerHTML = "";
-
-  obras.forEach((obra) => {
-    let li = document.createElement("li");
-
-    li.textContent = obra.nome + " - " + obra.local;
-
-    lista.appendChild(li);
-
-    let option = document.createElement("option");
-
-    option.value = obra.id;
-    option.textContent = obra.nome;
-
-    select.appendChild(option);
-  });
-}
-
-function registrarGasto() {
-  let obraId = document.getElementById("obraSelecionada").value;
-  let descricao = document.getElementById("descricaoGasto").value;
-  let valor = document.getElementById("valorGasto").value;
-  let data = document.getElementById("dataGasto").value;
-  let categoria = document.getElementById("categoriaGasto").value;
-
-  if (!descricao || !valor) {
-    alert("Preencha os campos");
-    return;
-  }
-
-  let gasto = {
-    id: Date.now(),
-    obraId,
-    descricao,
-    valor,
-    data,
-    categoria,
-  };
-
-  gastos.push(gasto);
-
-  salvarDados();
-
-  document.getElementById("descricaoGasto").value = "";
-  document.getElementById("valorGasto").value = "";
-
-  renderGastos();
-}
-
-function renderGastos() {
-  let tabela = document.getElementById("tabelaGastos");
-
-  tabela.innerHTML = "";
-
-  gastos.forEach((gasto, index) => {
-    let obra = obras.find((o) => o.id == gasto.obraId);
-
-    let tr = document.createElement("tr");
-
-    tr.innerHTML = `
-
-<td>${obra ? obra.nome : "-"}</td>
-<td>${gasto.descricao}</td>
-<td>${gasto.categoria}</td>
-<td>R$ ${gasto.valor}</td>
-<td>${gasto.data}</td>
-
-<td>
-<button onclick="removerGasto(${index})" class="btn-primary">
-Excluir
-</button>
-</td>
-
-`;
-
-    tabela.appendChild(tr);
-  });
-}
-
-function removerGasto(index) {
-  gastos.splice(index, 1);
-
-  salvarDados();
-
-  renderGastos();
-}
-
-renderObras();
-renderGastos();
+function renderObras(){const q=(document.getElementById('searchObras')?.value||'').toLowerCase(),sf=document.getElementById('filterObraStatus')?.value||'todos';const items=db.obras.filter(o=>(sf==='todos'||o.status===sf)&&[o.nome,o.local,clientName(o.clienteId)].join(' ').toLowerCase().includes(q));document.getElementById('obrasGrid').innerHTML=items.length?items.map(o=>{const t=workTotals(o.id);return `<article class="entity-card"><div class="entity-card-top"><div><p>${escapeHTML(clientName(o.clienteId))}</p><h3>${escapeHTML(o.nome)}</h3></div>${statusBadge(o.status)}</div><div class="entity-meta"><div><span>Local</span><b>${escapeHTML(o.local||'-')}</b></div><div><span>Prazo</span><b>${dateBR(o.prazo)}</b></div><div><span>Orçado</span><b>${money(o.orcamento)}</b></div><div><span>Recebido</span><b>${money(t.rec)}</b></div><div><span>Pago/gasto</span><b>${money(t.pay)}</b></div><div><span>Resultado</span><b>${money(t.result)}</b></div></div><div class="progress"><span style="width:${Math.min(100,Number(o.progresso||0))}%"></span></div><small>${Number(o.progresso||0)}% concluído</small><div class="entity-actions"><select onchange="quickStatus('${o.id}',this.value)"><option value="">Alterar status...</option>${['Orçamento','Aguardando aprovação','Em andamento','Pausada','Concluída','Cancelada'].map(s=>`<option>${s}</option>`).join('')}</select><button class="btn btn-secondary" onclick="openWorkPayment('${o.id}','receita')">+ Receber</button><button class="btn btn-secondary" onclick="openWorkPayment('${o.id}','despesa')">− Pagar</button><button class="btn btn-secondary" onclick="editObra('${o.id}')">Editar</button><button class="btn btn-danger" onclick="deleteObra('${o.id}')">Excluir</button></div></article>`}).join(''):`<div class="empty-state">Nenhuma obra encontrada.</div>`}
+window.quickStatus=function(id,status){if(!status)return;const o=db.obras.find(x=>x.id===id);if(o){o.status=status;saveDB();toast('Status atualizado.')}};
+window.editObra=function(id){const o=db.obras.find(x=>x.id===id);if(!o)return;syncSelects();Object.entries({obraId:o.id,obraNome:o.nome,obraCliente:o.clienteId||'',obraStatus:o.status,obraLocal:o.local||'',obraInicio:o.inicio||'',obraPrazo:o.prazo||'',obraOrcamento:o.orcamento||0,obraProgresso:o.progresso||0,obraObs:o.obs||''}).forEach(([k,v])=>document.getElementById(k).value=v);document.getElementById('obraModalTitle').textContent='Editar obra';openModal('obraModal')};
+window.deleteObra=function(id){if(confirm('Excluir esta obra?')){db.obras=db.obras.filter(o=>o.id!==id);saveDB();toast('Obra excluída.')}};
+document.getElementById('obraForm').addEventListener('submit',e=>{e.preventDefault();const id=document.getElementById('obraId').value,data={id:id||uid('obra'),nome:document.getElementById('obraNome').value.trim(),clienteId:document.getElementById('obraCliente').value,status:document.getElementById('obraStatus').value,local:document.getElementById('obraLocal').value.trim(),inicio:document.getElementById('obraInicio').value,prazo:document.getElementById('obraPrazo').value,orcamento:Number(document.getElementById('obraOrcamento').value||0),progresso:Number(document.getElementById('obraProgresso').value||0),obs:document.getElementById('obraObs').value.trim(),createdAt:id?(db.obras.find(o=>o.id===id)?.createdAt||Date.now()):Date.now()};if(id)db.obras=db.obras.map(o=>o.id===id?data:o);else db.obras.push(data);e.target.reset();document.getElementById('obraId').value='';document.getElementById('obraModalTitle').textContent='Nova obra';closeModal('obraModal');saveDB();toast(id?'Obra atualizada.':'Obra cadastrada.')});
+function renderClientes(){const q=(document.getElementById('searchClientes')?.value||'').toLowerCase(),items=db.clientes.filter(c=>[c.nome,c.email,c.telefone].join(' ').toLowerCase().includes(q));document.getElementById('clientesGrid').innerHTML=items.length?items.map(c=>`<article class="entity-card"><div class="entity-card-top"><div><p>Cliente</p><h3>${escapeHTML(c.nome)}</h3></div></div><div class="entity-meta"><div><span>Telefone</span><b>${escapeHTML(c.telefone||'-')}</b></div><div><span>E-mail</span><b>${escapeHTML(c.email||'-')}</b></div><div><span>Obras</span><b>${db.obras.filter(o=>o.clienteId===c.id).length}</b></div></div><div class="entity-actions"><button class="btn btn-secondary" onclick="editCliente('${c.id}')">Editar</button><button class="btn btn-danger" onclick="deleteCliente('${c.id}')">Excluir</button></div></article>`).join(''):`<div class="empty-state">Nenhum cliente encontrado.</div>`}
+document.getElementById('clienteForm').addEventListener('submit',e=>{e.preventDefault();const id=document.getElementById('clienteId').value,data={id:id||uid('cli'),nome:document.getElementById('clienteNome').value.trim(),telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),obs:document.getElementById('clienteObs').value.trim(),createdAt:id?(db.clientes.find(c=>c.id===id)?.createdAt||Date.now()):Date.now()};if(id)db.clientes=db.clientes.map(c=>c.id===id?data:c);else db.clientes.push(data);e.target.reset();document.getElementById('clienteId').value='';closeModal('clienteModal');saveDB();toast(id?'Cliente atualizado.':'Cliente cadastrado.')});
+window.editCliente=function(id){const c=db.clientes.find(x=>x.id===id);if(!c)return;['clienteId','clienteNome','clienteTelefone','clienteEmail','clienteEndereco','clienteObs'].forEach((k,i)=>document.getElementById(k).value=[c.id,c.nome,c.telefone||'',c.email||'',c.endereco||'',c.obs||''][i]);document.getElementById('clienteModalTitle').textContent='Editar cliente';openModal('clienteModal')};window.deleteCliente=function(id){if(confirm('Excluir cliente?')){db.clientes=db.clientes.filter(c=>c.id!==id);saveDB();toast('Cliente excluído.')}};
+let budgetItems=[];
+function openBudgetModal(){budgetItems=[{descricao:'',tipo:'Material',quantidade:1,unidade:'un',valorUnitario:0}];document.getElementById('orcamentoForm').reset();document.getElementById('orcValidade').value=15;document.getElementById('orcMargem').value=20;renderBudgetItems();openModal('orcamentoModal')}
+window.openBudgetModal=openBudgetModal;window.addBudgetItem=function(){budgetItems.push({descricao:'',tipo:'Material',quantidade:1,unidade:'un',valorUnitario:0});renderBudgetItems()};
+function renderBudgetItems(){document.getElementById('budgetItems').innerHTML=budgetItems.map((i,n)=>`<div class="budget-item"><input placeholder="Descrição" value="${escapeHTML(i.descricao)}" oninput="budgetItems[${n}].descricao=this.value"><select onchange="budgetItems[${n}].tipo=this.value"><option ${i.tipo==='Material'?'selected':''}>Material</option><option ${i.tipo==='Funcionário'?'selected':''}>Funcionário</option><option ${i.tipo==='Equipamento'?'selected':''}>Equipamento</option><option ${i.tipo==='Gasolina'?'selected':''}>Gasolina</option><option ${i.tipo==='Outros'?'selected':''}>Outros</option></select><input type="number" min="0" step="0.01" value="${i.quantidade}" oninput="budgetItems[${n}].quantidade=Number(this.value)"><input placeholder="un." value="${escapeHTML(i.unidade)}" oninput="budgetItems[${n}].unidade=this.value"><input type="number" min="0" step="0.01" value="${i.valorUnitario}" oninput="budgetItems[${n}].valorUnitario=Number(this.value);calcBudget()"><b>${money(i.quantidade*i.valorUnitario)}</b><button type="button" class="table-action danger" onclick="budgetItems.splice(${n},1);renderBudgetItems();calcBudget()">×</button></div>`).join('');calcBudget()}
+function calcBudget(){const sub=budgetItems.reduce((s,i)=>s+Number(i.quantidade)*Number(i.valorUnitario),0),m=Number(document.getElementById('orcMargem').value||0),add=sub*m/100,total=sub+add;document.getElementById('orcSubtotal').textContent=money(sub);document.getElementById('orcAcrescimo').textContent=money(add);document.getElementById('orcTotal').textContent=money(total);document.getElementById('orcCostBreakdown').innerHTML=['Material','Funcionário','Equipamento','Gasolina','Outros'].map(t=>{const v=budgetItems.filter(i=>i.tipo===t).reduce((s,i)=>s+i.quantidade*i.valorUnitario,0);return `<div><span>${t}</span><b>${money(v)}</b></div>`}).join('')}
+window.calcBudget=calcBudget;document.getElementById('orcMargem').addEventListener('input',calcBudget);
+document.getElementById('orcamentoForm').addEventListener('submit',e=>{e.preventDefault();if(!budgetItems.length)return toast('Adicione pelo menos um item.');const sub=budgetItems.reduce((s,i)=>s+i.quantidade*i.valorUnitario,0),m=Number(document.getElementById('orcMargem').value||0);db.orcamentos.push({id:uid('orc'),numero:String(Date.now()).slice(-6),clienteId:document.getElementById('orcCliente').value,obraId:document.getElementById('orcObra').value,validade:Number(document.getElementById('orcValidade').value||15),status:document.getElementById('orcStatus').value,itens:budgetItems.map(x=>({...x})),subtotal:sub,margem:m,total:sub*(1+m/100),data:today(),createdAt:Date.now()});closeModal('orcamentoModal');saveDB();toast('Orçamento criado.')});
+function renderOrcamentos(){const q=(document.getElementById('searchOrcamentos')?.value||'').toLowerCase(),items=db.orcamentos.filter(o=>[o.numero,clientName(o.clienteId),workName(o.obraId),o.status].join(' ').toLowerCase().includes(q));document.getElementById('orcamentosTable').innerHTML=items.length?items.map(o=>`<tr><td>#${o.numero}</td><td>${escapeHTML(clientName(o.clienteId))}</td><td>${escapeHTML(workName(o.obraId))}</td><td>${statusBadge(o.status)}</td><td><b>${money(o.total)}</b></td><td>${dateBR(o.data)}</td><td><div class="table-actions"><button class="table-action" onclick="printBudget('${o.id}')">Imprimir</button><button class="table-action danger" onclick="deleteBudget('${o.id}')">Excluir</button></div></td></tr>`).join(''):`<tr><td colspan="7">Nenhum orçamento cadastrado.</td></tr>`}
+window.deleteBudget=function(id){if(confirm('Excluir orçamento?')){db.orcamentos=db.orcamentos.filter(o=>o.id!==id);saveDB();toast('Orçamento excluído.')}};
+window.printBudget=function(id){const o=db.orcamentos.find(x=>x.id===id),c=db.clientes.find(x=>x.id===o.clienteId),rows=o.itens.map(i=>`<tr><td>${escapeHTML(i.tipo)}</td><td>${escapeHTML(i.descricao)}</td><td>${i.quantidade}</td><td>${escapeHTML(i.unidade)}</td><td>${money(i.valorUnitario)}</td><td>${money(i.quantidade*i.valorUnitario)}</td></tr>`).join('');const w=window.open('','_blank');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orçamento #${o.numero}</title><style>body{font-family:Arial;padding:40px;color:#182235}h1{color:#2457d6}table{width:100%;border-collapse:collapse;margin:24px 0}th,td{border-bottom:1px solid #ddd;padding:10px;text-align:left}.total{text-align:right;font-size:24px;font-weight:bold}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}</style></head><body><h1>Gestor de Obras</h1><h2>Orçamento #${o.numero}</h2><div class="grid"><div><b>Cliente:</b> ${escapeHTML(c?.nome||'-')}</div><div><b>Data:</b> ${dateBR(o.data)}</div><div><b>Obra:</b> ${escapeHTML(workName(o.obraId))}</div><div><b>Validade:</b> ${o.validade} dias</div></div><table><thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd.</th><th>Un.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p>Subtotal: ${money(o.subtotal)}</p><p>Lucro/acréscimo: ${o.margem}%</p><p class="total">TOTAL: ${money(o.total)}</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()};
+function renderEstoque(){const q=(document.getElementById('searchEstoque')?.value||'').toLowerCase(),items=db.estoque.filter(i=>[i.nome,i.categoria,i.fornecedor].join(' ').toLowerCase().includes(q));document.getElementById('stockItems').textContent=db.estoque.length;document.getElementById('stockValue').textContent=money(db.estoque.reduce((s,i)=>s+i.quantidade*i.custo,0));document.getElementById('stockLow').textContent=db.estoque.filter(i=>i.quantidade<=i.minimo).length;document.getElementById('estoqueTable').innerHTML=items.length?items.map(i=>{const used=db.movimentos.filter(m=>m.itemId===i.id&&m.tipo==='saida').reduce((s,m)=>s+m.quantidade,0),spent=db.movimentos.filter(m=>m.itemId===i.id&&m.tipo==='saida').reduce((s,m)=>s+m.totalCusto,0);return `<tr><td><b>${escapeHTML(i.nome)}</b><br><small>${escapeHTML(i.fornecedor||'')}</small></td><td>${escapeHTML(i.categoria||'-')}</td><td>${i.quantidade}</td><td>${escapeHTML(i.unidade)}</td><td>${money(i.custo)}</td><td>${i.minimo}</td><td>${statusBadge(i.quantidade<=i.minimo?'Baixo':'Normal')}</td><td><small>Usado: ${used} · ${money(spent)}</small><div class="table-actions"><button class="table-action" onclick="editStock('${i.id}')">Editar</button><button class="table-action" onclick="showMaterialUsage('${i.id}')">Uso</button><button class="table-action danger" onclick="deleteStock('${i.id}')">Excluir</button></div></td></tr>`}).join(''):`<tr><td colspan="8">Nenhum item cadastrado.</td></tr>`}
+window.showMaterialUsage=function(id){const item=db.estoque.find(i=>i.id===id),rows=db.movimentos.filter(m=>m.itemId===id&&m.tipo==='saida');alert(`${item.nome}\n\n${rows.length?rows.map(m=>`${workName(m.obraId)} — ${m.quantidade} ${item.unidade} — ${money(m.totalCusto)}`).join('\n'):'Nenhuma utilização registrada.'}`)};
+document.getElementById('estoqueForm').addEventListener('submit',e=>{e.preventDefault();const id=document.getElementById('estoqueId').value,data={id:id||uid('item'),nome:document.getElementById('estoqueNome').value.trim(),categoria:document.getElementById('estoqueCategoria').value.trim(),unidade:document.getElementById('estoqueUnidade').value,quantidade:Number(document.getElementById('estoqueQtd').value||0),minimo:Number(document.getElementById('estoqueMin').value||0),custo:Number(document.getElementById('estoqueCusto').value||0),fornecedor:document.getElementById('estoqueFornecedor').value.trim(),createdAt:id?(db.estoque.find(i=>i.id===id)?.createdAt||Date.now()):Date.now()};if(id)db.estoque=db.estoque.map(i=>i.id===id?data:i);else db.estoque.push(data);e.target.reset();document.getElementById('estoqueId').value='';closeModal('estoqueModal');saveDB();toast(id?'Item atualizado.':'Item cadastrado.')});
+window.editStock=function(id){const i=db.estoque.find(x=>x.id===id);if(!i)return;Object.entries({estoqueId:i.id,estoqueNome:i.nome,estoqueCategoria:i.categoria||'',estoqueUnidade:i.unidade,estoqueQtd:i.quantidade,estoqueMin:i.minimo,estoqueCusto:i.custo,estoqueFornecedor:i.fornecedor||''}).forEach(([k,v])=>document.getElementById(k).value=v);openModal('estoqueModal')};window.deleteStock=function(id){if(confirm('Excluir item do estoque?')){db.estoque=db.estoque.filter(i=>i.id!==id);saveDB();toast('Item excluído.')}};
+document.getElementById('movimentoForm').addEventListener('submit',e=>{e.preventDefault();const item=db.estoque.find(i=>i.id===document.getElementById('movItem').value),tipo=document.getElementById('movTipo').value,qtd=Number(document.getElementById('movQtd').value||0),obraId=document.getElementById('movObra').value;if(!item)return toast('Selecione um material.');if(tipo==='saida'&&qtd>item.quantidade)return toast('Quantidade insuficiente.');const totalCusto=qtd*Number(item.custo||0);item.quantidade=Number(item.quantidade)+(tipo==='entrada'?qtd:-qtd);const mov={id:uid('mov'),itemId:item.id,tipo,quantidade:qtd,obraId,obs:document.getElementById('movObs').value.trim(),totalCusto,data:today(),createdAt:Date.now()};db.movimentos.push(mov);if(tipo==='saida'&&obraId&&totalCusto>0)db.financeiro.push({id:uid('fin'),tipo:'despesa',status:'Pago',descricao:`Material: ${item.nome} (${qtd} ${item.unidade})`,valor:totalCusto,data:today(),categoria:'Material',obraId,origem:'estoque',movimentoId:mov.id,createdAt:Date.now()});if(tipo==='entrada'&&document.getElementById('movRegistrarCompra').checked&&totalCusto>0)db.financeiro.push({id:uid('fin'),tipo:'despesa',status:'Pago',descricao:`Compra de estoque: ${item.nome} (${qtd} ${item.unidade})`,valor:totalCusto,data:today(),categoria:'Material',obraId:'',origem:'estoque_entrada',movimentoId:mov.id,createdAt:Date.now()});e.target.reset();closeModal('movimentoModal');saveDB();toast(tipo==='saida'?'Material utilizado e gasto lançado no financeiro.':'Entrada registrada.')});
+function renderFinanceiro(){const f=document.getElementById('financeFilter').value,all=db.financeiro.filter(x=>f==='todos'||(f==='pendente'?x.status!=='Pago':x.tipo===f));const rec=db.financeiro.filter(x=>x.tipo==='receita').reduce((s,x)=>s+x.valor,0),des=db.financeiro.filter(x=>x.tipo==='despesa').reduce((s,x)=>s+x.valor,0);document.getElementById('finReceitas').textContent=money(rec);document.getElementById('finDespesas').textContent=money(des);document.getElementById('finSaldo').textContent=money(rec-des);document.getElementById('financeTable').innerHTML=all.length?[...all].sort((a,b)=>b.createdAt-a.createdAt).map(x=>`<tr><td>${x.tipo==='receita'?'<span class="badge green">Receita</span>':'<span class="badge red">Despesa</span>'}</td><td>${escapeHTML(x.descricao)}</td><td>${escapeHTML(workName(x.obraId))}</td><td>${escapeHTML(x.categoria||'-')}</td><td>${statusBadge(x.status)}</td><td><b>${money(x.valor)}</b></td><td>${dateBR(x.data)}</td><td><button class="table-action danger" onclick="deleteFinance('${x.id}')">Excluir</button></td></tr>`).join(''):`<tr><td colspan="8">Nenhum lançamento.</td></tr>`}
+document.getElementById('financeFilter').addEventListener('change',renderFinanceiro);document.getElementById('financeiroForm').addEventListener('submit',e=>{e.preventDefault();db.financeiro.push({id:uid('fin'),tipo:document.getElementById('finTipo').value,status:document.getElementById('finStatus').value,descricao:document.getElementById('finDescricao').value.trim(),valor:Number(document.getElementById('finValor').value),data:document.getElementById('finData').value,categoria:document.getElementById('finCategoria').value.trim(),obraId:document.getElementById('finObra').value,createdAt:Date.now()});e.target.reset();document.getElementById('finData').value=today();closeModal('financeiroModal');saveDB();toast('Lançamento registrado.')});window.deleteFinance=function(id){if(confirm('Excluir lançamento?')){db.financeiro=db.financeiro.filter(x=>x.id!==id);saveDB();toast('Lançamento excluído.')}};
+function openWorkPayment(id,tipo){syncSelects();document.getElementById('obraPayId').value=id;document.getElementById('obraPaySelect').value=id;document.getElementById('payTipo').value=tipo;document.getElementById('payDescricao').value=tipo==='receita'?'Recebimento da obra':'Pagamento da obra';document.getElementById('payCategoria').value=tipo==='receita'?'Pagamento final':'Material';document.getElementById('obraPaymentTitle').textContent=tipo==='receita'?'Receber da obra':'Pagar na obra';openModal('obraPaymentModal')};window.openWorkPayment=openWorkPayment;
+document.getElementById('obraPaymentForm').addEventListener('submit',e=>{e.preventDefault();db.financeiro.push({id:uid('fin'),tipo:document.getElementById('payTipo').value,status:document.getElementById('payStatus').value,descricao:document.getElementById('payDescricao').value.trim(),valor:Number(document.getElementById('payValor').value),data:document.getElementById('payData').value,categoria:document.getElementById('payCategoria').value.trim(),obraId:document.getElementById('obraPayId').value,createdAt:Date.now()});e.target.reset();document.getElementById('payData').value=today();closeModal('obraPaymentModal');saveDB();toast('Movimentação da obra registrada.')});
+function renderReports(){const rec=db.financeiro.filter(x=>x.tipo==='receita').reduce((s,x)=>s+x.valor,0),des=db.financeiro.filter(x=>x.tipo==='despesa').reduce((s,x)=>s+x.valor,0),orc=db.orcamentos.reduce((s,x)=>s+x.total,0),ap=db.orcamentos.filter(x=>x.status==='Aprovado').reduce((s,x)=>s+x.total,0),stock=db.estoque.reduce((s,x)=>s+x.quantidade*x.custo,0);document.getElementById('reportIndicators').innerHTML=[['Receitas',money(rec)],['Despesas',money(des)],['Total orçado',money(orc)],['Aprovado',money(ap)],['Estoque',money(stock)],['Resultado',money(rec-des)]].map(x=>`<div class="report-kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join('');const cats={};db.financeiro.filter(x=>x.tipo==='despesa').forEach(x=>cats[x.categoria||'Outros']=(cats[x.categoria||'Outros']||0)+x.valor);const max=Math.max(1,...Object.values(cats));document.getElementById('categoryBars').innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div class="bar-row"><span>${escapeHTML(c)}</span><div class="bar-track"><div class="bar-fill" style="width:${v/max*100}%"></div></div><b>${money(v)}</b></div>`).join('')||'<div class="empty-state">Sem despesas.</div>';document.getElementById('reportWorks').innerHTML=db.obras.map(o=>{const t=workTotals(o.id),budget=db.orcamentos.filter(x=>x.obraId===o.id).reduce((s,x)=>s+x.total,0);return `<tr><td>${escapeHTML(o.nome)}</td><td>${money(budget||o.orcamento)}</td><td>${money(t.rec)}</td><td>${money(t.pay)}</td><td>${money(t.result)}</td></tr>`}).join('')||'<tr><td colspan="5">Nenhuma obra.</td></tr>'}
+function renderAll(){syncSelects();renderDashboard();renderObras();renderClientes();renderOrcamentos();renderEstoque();renderFinanceiro();renderReports()}
+['searchObras','searchClientes','searchOrcamentos','searchEstoque'].forEach(id=>document.getElementById(id)?.addEventListener('input',renderAll));document.getElementById('filterObraStatus')?.addEventListener('change',renderObras);
+document.getElementById('themeToggle').addEventListener('click',()=>{document.body.classList.toggle('dark');db.config.theme=document.body.classList.contains('dark')?'dark':'light';saveDB()});
+document.getElementById('resetData').addEventListener('click',()=>{if(confirm('Apagar TODOS os dados locais?')){db=structuredClone(emptyDB);saveDB();toast('Dados apagados.')}});
+document.getElementById('finData').value=today();document.getElementById('payData').value=today();document.getElementById('movRegistrarCompra').checked=true;
+if(db.config.theme==='dark')document.body.classList.add('dark');renderAll();
